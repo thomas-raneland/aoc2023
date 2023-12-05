@@ -1,2 +1,4 @@
-# aoc2023
-Advent of Code 2023
+# Advent of Code 2023
+
+My solutions for Advent of Code 2023 problems.
+https://adventofcode.com/2023
