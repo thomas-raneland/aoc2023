@@ -73,7 +73,7 @@ function addDefaultRules(rules) {
     start = rule.sourceStart + rule.length;
   }
 
-  defaultRules.push({destStart: start, sourceStart: start, length: Number.MAX_VALUE - start});
+  defaultRules.push({ destStart: start, sourceStart: start, length: Number.MAX_VALUE - start });
   const all = [...rules, ...defaultRules];
   all.sort((a, b) => a.sourceStart - b.sourceStart);
   return all;
