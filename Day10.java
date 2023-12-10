@@ -1,8 +1,8 @@
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -10,20 +10,19 @@ public class Day10 {
     public static void main(String... args) {
         for (String input : List.of(TEST_INPUT, TEST_INPUT2, INPUT)) {
             Sketch sketch = parse(input);
-
             var loop = sketch.findLoop();
             var output1 = (loop.size() + 1) / 2;
             System.out.println("Part I: " + output1);
 
-            var output2 = sketch.closeLoop(loop).findArea(new HashSet<>(loop));
-            System.out.println("Part II:" + output2);
+            var output2 = sketch.closeLoop(loop).findArea(loop);
+            System.out.println("Part II: " + output2);
         }
     }
 
     static Sketch parse(String input) {
-        Map<Pos, Tile> map = new LinkedHashMap<>();
+        var map = new HashMap<Pos, Tile>();
         Pos startPos = null;
-        List<String> lines = input.lines().toList();
+        var lines = input.lines().toList();
 
         for (int y = 0; y < lines.size(); y++) {
             for (int x = 0; x < lines.get(y).length(); x++) {
@@ -53,28 +52,26 @@ public class Day10 {
 
     record Sketch(Map<Pos, Tile> tiles, Pos startPos) {
         List<Pos> findLoop() {
-            return Objects.requireNonNull(findLoop(startPos(), Tile.S, null)).toList();
-        }
+            var loop = new ArrayList<Pos>();
+            var pos = startPos;
+            Direction back = null;
 
-        Stream<Pos> findLoop(Pos pos, Tile tile, Direction closedExit) {
-            for (Direction dir : Direction.values()) {
-                if (dir != closedExit && tile.hasExit(dir)) {
-                    Pos nextPos = pos.move(dir);
-                    Tile nextTile = tiles.get(nextPos);
+            do {
+                for (Direction forward : Direction.values()) {
+                    if (forward != back && tiles.get(pos).hasExit(forward)) {
+                        Pos nextPos = pos.move(forward);
 
-                    if (nextTile == Tile.S) {
-                        return Stream.of(pos);
-                    } else if (nextTile != null && nextTile.hasExit(dir.opposite())) {
-                        Stream<Pos> found = findLoop(nextPos, nextTile, dir.opposite());
-
-                        if (found != null) {
-                            return Stream.concat(Stream.of(pos), found);
+                        if (tiles.containsKey(nextPos) && tiles.get(nextPos).hasExit(forward.opposite())) {
+                            loop.add(pos);
+                            pos = nextPos;
+                            back = forward.opposite();
+                            break;
                         }
                     }
                 }
-            }
+            } while (!pos.equals(startPos));
 
-            return null;
+            return loop;
         }
 
         Sketch closeLoop(List<Pos> loop) {
@@ -82,23 +79,28 @@ public class Day10 {
             var suc = loop.get(1);
             var preDir = Stream.of(Direction.values()).filter(d -> startPos.move(d).equals(pre)).findFirst().orElseThrow();
             var sucDir = Stream.of(Direction.values()).filter(d -> startPos.move(d).equals(suc)).findFirst().orElseThrow();
-            var map = new LinkedHashMap<>(tiles);
+            var map = new HashMap<>(tiles);
             map.put(startPos, Tile.find(preDir, sucDir));
             return new Sketch(map, startPos);
         }
 
-        long findArea(Set<Pos> loop) {
-            return tiles.keySet().stream().filter(pos -> !loop.contains(pos) && crossingsNorth(loop, pos) % 2 == 1).count();
+        long findArea(List<Pos> loop) {
+            var loopPositions = new HashSet<>(loop);
+
+            return tiles.keySet()
+                        .stream()
+                        .filter(pos -> !loopPositions.contains(pos))
+                        .filter(pos -> crossingsNorth(loopPositions, pos) % 2 == 1)
+                        .count();
         }
 
-        int crossingsNorth(Set<Pos> loop, Pos pos) {
+        int crossingsNorth(Set<Pos> loopPositions, Pos pos) {
             var crossings = 0;
 
             while (pos.y > 0) {
                 pos = pos.move(Direction.N);
-                Tile tile = tiles.get(pos);
 
-                if (loop.contains(pos) && tile.hasExit(Direction.E)) {
+                if (loopPositions.contains(pos) && tiles.get(pos).hasExit(Direction.E)) {
                     crossings++;
                 }
             }
@@ -133,8 +135,8 @@ public class Day10 {
     }
 
     record Pos(int x, int y) {
-        public Pos move(Direction d) {
-            return switch (d) {
+        Pos move(Direction dir) {
+            return switch (dir) {
                 case N -> new Pos(x, y - 1);
                 case E -> new Pos(x + 1, y);
                 case S -> new Pos(x, y + 1);
@@ -146,7 +148,7 @@ public class Day10 {
     enum Direction {
         N, E, S, W;
 
-        public Direction opposite() {
+        Direction opposite() {
             return switch (this) {
                 case N -> S;
                 case E -> W;
