@@ -1,8 +1,7 @@
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class Day11 {
     record Galaxy(int x, int y, int name) {}
@@ -15,7 +14,7 @@ public class Day11 {
 
     public static void main(String... args) {
         for (String input : List.of(TEST_INPUT, INPUT)) {
-            Set<Galaxy> galaxies = parse(input);
+            List<Galaxy> galaxies = parse(input);
 
             for (long weight : List.of(2, 10, 1_000_000)) {
                 Mapping mapping = mapping(galaxies, weight);
@@ -25,8 +24,8 @@ public class Day11 {
         }
     }
 
-    private static Set<Galaxy> parse(String input) {
-        Set<Galaxy> galaxies = new HashSet<>();
+    private static List<Galaxy> parse(String input) {
+        List<Galaxy> galaxies = new ArrayList<>();
         List<String> lines = input.lines().toList();
         int name = 1;
 
@@ -41,7 +40,7 @@ public class Day11 {
         return galaxies;
     }
 
-    private static Mapping mapping(Set<Galaxy> galaxies, long weight) {
+    private static Mapping mapping(List<Galaxy> galaxies, long weight) {
         var xCoords = galaxies.stream().mapToInt(galaxy -> galaxy.x).distinct().sorted().toArray();
         var yCoords = galaxies.stream().mapToInt(galaxy -> galaxy.y).distinct().sorted().toArray();
         return new Mapping(mapCoords(xCoords, weight), mapCoords(yCoords, weight));
@@ -58,10 +57,12 @@ public class Day11 {
             oldCoord = coord;
         }
 
+        System.out.println(map);
+
         return map;
     }
 
-    private static long totalDistance(Set<Galaxy> galaxies, Mapping mapping) {
+    private static long totalDistance(List<Galaxy> galaxies, Mapping mapping) {
         return galaxies.stream().flatMapToLong(a -> galaxies.stream().mapToLong(b -> mapping.distance(a, b))).sum() / 2;
     }
 
