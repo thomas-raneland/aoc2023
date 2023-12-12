@@ -2,37 +2,32 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.ToIntFunction;
 
 public class Day11 {
-    record Galaxy(int x, int y, int name) {}
-
-    record Mapping(Map<Integer, Long> x, Map<Integer, Long> y) {
-        long distance(Galaxy a, Galaxy b) {
-            return Math.abs(x.get(a.x) - x.get(b.x)) + Math.abs(y.get(a.y) - y.get(b.y));
-        }
-    }
+    record Galaxy(int x, int y) {}
 
     public static void main(String... args) {
         for (String input : List.of(TEST_INPUT, INPUT)) {
-            List<Galaxy> galaxies = parse(input);
+            var galaxies = parse(input);
 
             for (long weight : List.of(2, 10, 1_000_000)) {
-                Mapping mapping = mapping(galaxies, weight);
-                long total = totalDistance(galaxies, mapping);
+                var xMapping = mapping(galaxies, g -> g.x, weight);
+                var yMapping = mapping(galaxies, g -> g.y, weight);
+                var total = totalDistance(galaxies, xMapping, yMapping);
                 System.out.println(weight + ": " + total);
             }
         }
     }
 
-    private static List<Galaxy> parse(String input) {
+    static List<Galaxy> parse(String input) {
         List<Galaxy> galaxies = new ArrayList<>();
         List<String> lines = input.lines().toList();
-        int name = 1;
 
         for (int y = 0; y < lines.size(); y++) {
             for (int x = 0; x < lines.get(y).length(); x++) {
                 if (lines.get(y).charAt(x) == '#') {
-                    galaxies.add(new Galaxy(x, y, name++));
+                    galaxies.add(new Galaxy(x, y));
                 }
             }
         }
@@ -40,30 +35,31 @@ public class Day11 {
         return galaxies;
     }
 
-    private static Mapping mapping(List<Galaxy> galaxies, long weight) {
-        var xCoords = galaxies.stream().mapToInt(galaxy -> galaxy.x).distinct().sorted().toArray();
-        var yCoords = galaxies.stream().mapToInt(galaxy -> galaxy.y).distinct().sorted().toArray();
-        return new Mapping(mapCoords(xCoords, weight), mapCoords(yCoords, weight));
-    }
-
-    private static Map<Integer, Long> mapCoords(int[] coords, long weight) {
+    static Map<Integer, Long> mapping(List<Galaxy> galaxies, ToIntFunction<Galaxy> coordFunction, long weight) {
         Map<Integer, Long> map = new HashMap<>();
-        long delta = 0;
-        int oldCoord = -1;
+        long bonus = 0;
+        int prevCoord = -1;
 
-        for (int coord : coords) {
-            delta += coord - oldCoord - 1;
-            map.put(coord, coord + delta * (weight - 1));
-            oldCoord = coord;
+        for (int coord : galaxies.stream().mapToInt(coordFunction).sorted().distinct().toArray()) {
+            bonus += (coord - prevCoord - 1) * (weight - 1);
+            map.put(coord, coord + bonus);
+            prevCoord = coord;
         }
-
-        System.out.println(map);
 
         return map;
     }
 
-    private static long totalDistance(List<Galaxy> galaxies, Mapping mapping) {
-        return galaxies.stream().flatMapToLong(a -> galaxies.stream().mapToLong(b -> mapping.distance(a, b))).sum() / 2;
+    static long totalDistance(List<Galaxy> galaxies, Map<Integer, Long> xMapping, Map<Integer, Long> yMapping) {
+        long total = 0;
+
+        for (var a : galaxies) {
+            for (var b : galaxies.subList(galaxies.indexOf(a) + 1, galaxies.size())) {
+                total += Math.abs(xMapping.get(a.x) - xMapping.get(b.x));
+                total += Math.abs(yMapping.get(a.y) - yMapping.get(b.y));
+            }
+        }
+
+        return total;
     }
 
     private static final String TEST_INPUT = """
