@@ -1,98 +1,24 @@
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 public class Day12 {
     public static void main(String... args) {
         for (String input : List.of(TEST_INPUT, INPUT)) {
-            partI(input);
-            partII(input);
+            var lines = input.lines().map(Day12::parse).toList();
+            System.out.println(lines.stream().mapToLong(parsed -> count(parsed.bookEnd(), new HashMap<>())).sum());
+            System.out.println(lines.stream().mapToLong(parsed -> count(parsed.unfold().bookEnd(), new HashMap<>())).sum());
         }
     }
 
-    private static void partI(String input) {
-        long total = input
-                .lines()
-                .map(line -> parse(line).bookEnd())
-                .mapToLong(parsed -> count(parsed.springs(), parsed.lengths()))
-                .sum();
-
-        System.out.println(total);
-    }
-
-    private static void partII(String input) {
-        long total = input
-                .lines()
-                .map(line -> parse(line).unfold().bookEnd())
-                .mapToLong(parsed -> count(parsed.springs(), parsed.lengths()))
-                .sum();
-
-        System.out.println(total);
-    }
-
-    private static long count(List<Spring> springs, List<Integer> pieces) {
-        if (pieces.isEmpty()) {
-            return springs.stream().anyMatch(s -> s == Spring.Broken) ? 0 : 1;
-        }
-
-        int mid = pieces.size() / 2;
-        int midSize = pieces.get(mid);
-        int sumBefore = pieces.stream().limit(mid).mapToInt(i -> i).sum();
-        int sumAfter = pieces.stream().skip(mid + 1).mapToInt(i -> i).sum();
-        long total = 0;
-
-        for (int pos = sumBefore + 1; pos < springs.size() - sumAfter - midSize; pos++) {
-            if (fits(springs, pos, midSize)) {
-                var left = count(springs.subList(0, pos), pieces.subList(0, mid));
-
-                if (left != 0) {
-                    var right = count(springs.subList(pos + midSize, springs.size()), pieces.subList(mid + 1, pieces.size()));
-                    total += left * right;
-                }
-            }
-        }
-
-        return total;
-    }
-
-    private static boolean fits(List<Spring> springs, int i, int size) {
-        boolean left = (i == 0) || springs.get(i - 1) != Spring.Broken;
-        boolean right = (i + size == springs.size()) || springs.get(i + size) != Spring.Broken;
-        boolean mid = springs.subList(i, i + size).stream().allMatch(s -> s != Spring.Op);
-        return mid && left && right;
-    }
-
-    record Line(List<Spring> springs, List<Integer> lengths) {
-        public Line unfold() {
-            var s5 = new ArrayList<Spring>();
-            var l5 = new ArrayList<Integer>();
-
-            for (int i = 0; i < 5; i++) {
-                s5.addAll(springs);
-                l5.addAll(lengths);
-
-                if (i < 4) {
-                    s5.add(Spring.Unknown);
-                }
-            }
-
-            return new Line(s5, l5);
-        }
-
-        public Line bookEnd() {
-            List<Spring> l = new ArrayList<>(springs);
-            l.add(0, Spring.Op);
-            l.add(Spring.Op);
-            return new Line(l, lengths);
-        }
-    }
-
-    private static Line parse(String line) {
+    static Line parse(String line) {
         String[] parts = line.split(" ");
 
         List<Spring> springs = parts[0]
                 .chars()
-                .mapToObj(c -> c == '.' ? Spring.Op : c == '#' ? Spring.Broken : Spring.Unknown)
+                .mapToObj(c -> c == '.' ? Spring.OPERATIONAL : c == '#' ? Spring.DAMAGED : Spring.UNKNOWN)
                 .toList();
 
         List<Integer> lengths = Stream.of(parts[1].split(","))
@@ -102,7 +28,89 @@ public class Day12 {
         return new Line(springs, lengths);
     }
 
-    enum Spring {Op, Broken, Unknown}
+    static long count(Line line, Map<Line, Long> cache) {
+        if (cache.containsKey(line)) {
+            return cache.get(line);
+        }
+
+        long total = 0;
+
+        if (line.lengths().isEmpty()) {
+            total = line.springs().stream().anyMatch(s -> s == Spring.DAMAGED) ? 0 : 1;
+        } else {
+            int midLength = line.lengths().get(line.mid());
+            int end = line.springs().size() - line.minRightLength() - midLength;
+            int start = line.minLeftLength() + 1;
+
+            for (int pos = start; pos < end; pos++) {
+                if (fits(line.springs(), pos, midLength)) {
+                    var left = count(line.left(pos), cache);
+
+                    if (left != 0) {
+                        var right = count(line.right(pos + midLength), cache);
+                        total += left * right;
+                    }
+                }
+            }
+        }
+
+        cache.put(line, total);
+        return total;
+    }
+
+    static boolean fits(List<Spring> springs, int i, int size) {
+        boolean left = (i == 0) || springs.get(i - 1) != Spring.DAMAGED;
+        boolean right = (i + size == springs.size()) || springs.get(i + size) != Spring.DAMAGED;
+        boolean mid = springs.subList(i, i + size).stream().noneMatch(s -> s == Spring.OPERATIONAL);
+        return mid && left && right;
+    }
+
+    enum Spring {OPERATIONAL, DAMAGED, UNKNOWN}
+
+    record Line(List<Spring> springs, List<Integer> lengths, int mid) {
+        Line(List<Spring> springs, List<Integer> lengths) {
+            this(springs, lengths, lengths.size() / 2);
+        }
+
+        Line unfold() {
+            var springs5 = new ArrayList<Spring>();
+            var lengths5 = new ArrayList<Integer>();
+
+            for (int i = 0; i < 5; i++) {
+                springs5.addAll(springs);
+                lengths5.addAll(lengths);
+
+                if (i < 4) {
+                    springs5.add(Spring.UNKNOWN);
+                }
+            }
+
+            return new Line(springs5, lengths5);
+        }
+
+        Line bookEnd() {
+            List<Spring> newLine = new ArrayList<>(springs);
+            newLine.add(0, Spring.OPERATIONAL);
+            newLine.add(Spring.OPERATIONAL);
+            return new Line(newLine, lengths);
+        }
+
+        Line left(int pos) {
+            return new Line(springs.subList(0, pos), lengths.subList(0, mid));
+        }
+
+        Line right(int pos) {
+            return new Line(springs.subList(pos, springs.size()), lengths.subList(mid + 1, lengths.size()));
+        }
+
+        int minLeftLength() {
+            return lengths.stream().limit(mid).mapToInt(i -> i).sum();
+        }
+
+        int minRightLength() {
+            return lengths.stream().skip(mid + 1).mapToInt(i -> i).sum();
+        }
+    }
 
     private static final String TEST_INPUT = """
             ???.### 1,1,3
