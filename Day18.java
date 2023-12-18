@@ -14,18 +14,32 @@ public class Day18 {
     }
 
     static long partI(String input) {
-        var instructions = parse(input);
+        var instructions = parseI(input);
         var loop = trench(instructions);
-        return lagoonSize(loop);
+        return lagoonArea(loop);
+    }
+
+    private static long shoelaceFormula(List<Instruction> instructions) {
+        long interiorArea = 0;
+        long trenchArea = 0;
+        Pos pos = new Pos(0, 0);
+
+        for (var instr : instructions) {
+            Pos next = pos.move(instr.direction(), instr.distance());
+            interiorArea += pos.x() * (long) next.y() - pos.y() * (long) next.x();
+            trenchArea += instr.distance();
+            pos = next;
+        }
+
+        return interiorArea / 2 + trenchArea / 2 + 1;
     }
 
     static long partII(String input) {
-        var instructionss = parseII(input);
-        var trench = trench(instructionss);
-        return lagoonSize(trench);
+        var instructions = parseII(input);
+        return shoelaceFormula(instructions);
     }
 
-    static List<Instruction> parse(String input) {
+    static List<Instruction> parseI(String input) {
         var directions = Map.of(
                 "L", Direction.LEFT,
                 "U", Direction.UP,
@@ -99,7 +113,7 @@ public class Day18 {
         return new Trench(edges, cornerXCoords, cornerYCoords, new Pos(minX, minY), new Pos(maxX, maxY));
     }
 
-    static long lagoonSize(Trench trench) {
+    static long lagoonArea(Trench trench) {
         long size = 0;
         long lastRowSize = 0;
         var inside = false;
@@ -151,11 +165,15 @@ public class Day18 {
 
     record Pos(int x, int y) {
         Pos move(Direction direction) {
+            return move(direction, 1);
+        }
+
+        public Pos move(Direction direction, int distance) {
             return switch (direction) {
-                case UP -> new Pos(x, y - 1);
-                case RIGHT -> new Pos(x + 1, y);
-                case DOWN -> new Pos(x, y + 1);
-                case LEFT -> new Pos(x - 1, y);
+                case UP -> new Pos(x, y - distance);
+                case RIGHT -> new Pos(x + distance, y);
+                case DOWN -> new Pos(x, y + distance);
+                case LEFT -> new Pos(x - distance, y);
             };
         }
     }
