@@ -30,7 +30,7 @@ public class Day17 {
     static void addEdges(Graph<Location> g, Location location, City city, int min, int max, HashSet<Location> seen) {
         for (var dir : Direction.values()) {
             for (int steps = 1; steps <= min; steps++) {
-                var nextLocation = location.to(steps, max, dir, city);
+                var nextLocation = location.move(steps, max, dir, city);
 
                 if (nextLocation != null && nextLocation.directions().size() >= min) {
                     g.addEdge(location, nextLocation, location.heatLoss(steps, dir, city));
@@ -67,7 +67,7 @@ public class Day17 {
     }
 
     record Location(List<Direction> directions, CityBlock block) {
-        Location to(int steps, int maxDirections, Direction dir, City city) {
+        Location move(int steps, int maxDirections, Direction dir, City city) {
             if (!directions.isEmpty() && dir.isOpposite(directions.get(0))) {
                 return null;
             }
@@ -151,12 +151,10 @@ public class Day17 {
             queue.add(new NodeDistance<>(start, 0));
 
             while (!queue.isEmpty()) {
-                NodeDistance<T> u = queue.poll();
+                var u = queue.poll();
 
-                if (!visited.contains(u.node())) {
-                    visited.add(u.node());
-
-                    for (NodeDistance<T> v : neighbors.get(u.node())) {
+                if (visited.add(u.node())) {
+                    for (var v : neighbors.get(u.node())) {
                         if (!visited.contains(v.node())) {
                             int newDistance = distances.get(u.node()) + v.distance();
 
