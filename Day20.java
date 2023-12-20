@@ -49,27 +49,27 @@ public class Day20 {
 
         for (var m : modules.values()) {
             for (var r : m.receivers()) {
-                dependencies.merge(r, Set.of(m.name()), (a, b) -> {
-                    Set<String> u = new HashSet<>(a);
-                    u.addAll(b);
-                    return u;
-                });
+                dependencies.merge(r, Set.of(m.name()), AocUtils::union);
             }
         }
 
-        System.out.println("Part II: " + cycleLength("rx", states, modules, dependencies, new HashSet<>()));
+        System.out.println("Part II: " + cycleLength("rx", states, modules, dependencies, new HashSet<>(), new HashMap<>()));
     }
 
     static long cycleLength(String name, Map<String, State> states, Map<String, Module> modules,
-                            Map<String, Set<String>> dependencies, Set<String> seen) {
+                            Map<String, Set<String>> dependencies, Set<String> seen, Map<String, Long> cache) {
+
+        if (cache.containsKey(name)) {
+            return cache.get(name);
+        }
+
+        long cycleLength = Integer.MAX_VALUE;
 
         if (seen.add(name)) {
-            return dependencies.getOrDefault(name, Set.of())
-                               .stream()
-                               .mapToLong(dep -> cycleLength(dep, states, modules, dependencies, seen))
-                               .distinct()
-                               .reduce(1, (a, b) -> a * b);
-
+            cycleLength = AocUtils.lcm(dependencies
+                    .getOrDefault(name, Set.of())
+                    .stream()
+                    .mapToLong(dep -> cycleLength(dep, states, modules, dependencies, seen, cache)));
         } else { // cyclic dependency - cannot calculate
             var original = new HashMap<>(states);
             var current = new HashMap<>(original);
@@ -79,12 +79,14 @@ public class Day20 {
                 pushButton(modules, current);
 
                 if (equalSubMaps(original, current, allDependenciesForName)) {
-                    return pushes;
+                    cycleLength = pushes;
+                    break;
                 }
             }
-
-            throw new IllegalStateException("Cycle is too long");
         }
+
+        cache.put(name, cycleLength);
+        return cycleLength;
     }
 
     static Set<String> allDependencies(String name, Map<String, Set<String>> dependencies) {
@@ -103,7 +105,7 @@ public class Day20 {
         return seen;
     }
 
-    static boolean equalSubMaps(Map<String,State> a, Map<String,State> b, Set<String> subsets) {
+    static boolean equalSubMaps(Map<String, State> a, Map<String, State> b, Set<String> subsets) {
         return subsets.stream().allMatch(k -> Objects.equals(a.get(k), b.get(k)));
     }
 

@@ -1,11 +1,6 @@
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.PriorityQueue;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -21,13 +16,13 @@ public class Day17 {
         }
     }
 
-    static Graph<Location> graph(Location location, City city, int min, int max) {
-        var graph = new Graph<Location>();
+    static AocUtils.Graph<Location> graph(Location location, City city, int min, int max) {
+        var graph = new AocUtils.Graph<Location>();
         addEdges(graph, location, city, min, max, new HashSet<>());
         return graph;
     }
 
-    static void addEdges(Graph<Location> g, Location location, City city, int min, int max, HashSet<Location> seen) {
+    static void addEdges(AocUtils.Graph<Location> g, Location location, City city, int min, int max, HashSet<Location> seen) {
         for (var dir : Direction.values()) {
             for (int steps = 1; steps <= min; steps++) {
                 var nextLocation = location.move(steps, max, dir, city);
@@ -126,57 +121,6 @@ public class Day17 {
     }
 
     record CityBlock(int x, int y, int heatLoss) {}
-
-    static class Graph<T> {
-        private final Map<T, Set<NodeDistance<T>>> neighbors;
-
-        public Graph() {
-            neighbors = new HashMap<>();
-        }
-
-        void addEdge(T source, T destination, int weight) {
-            neighbors.computeIfAbsent(source, k -> new HashSet<>()).add(new NodeDistance<>(destination, weight));
-            neighbors.computeIfAbsent(destination, k -> new HashSet<>());
-        }
-
-        int dijkstra(T start, Predicate<T> isEnd) {
-            Map<T, Integer> distances = new HashMap<>();
-
-            PriorityQueue<NodeDistance<T>> queue = new PriorityQueue<>(neighbors.keySet().size(),
-                    Comparator.comparingInt(NodeDistance::distance));
-
-            Set<T> visited = new HashSet<>();
-
-            distances.put(start, 0);
-            queue.add(new NodeDistance<>(start, 0));
-
-            while (!queue.isEmpty()) {
-                var u = queue.poll();
-
-                if (visited.add(u.node())) {
-                    for (var v : neighbors.get(u.node())) {
-                        if (!visited.contains(v.node())) {
-                            int newDistance = distances.get(u.node()) + v.distance();
-
-                            if (newDistance < distances.getOrDefault(v.node(), Integer.MAX_VALUE)) {
-                                distances.put(v.node(), newDistance);
-                                queue.add(new NodeDistance<>(v.node, newDistance));
-                            }
-                        }
-                    }
-                }
-            }
-
-            return distances.keySet()
-                            .stream()
-                            .filter(isEnd)
-                            .mapToInt(distances::get)
-                            .min()
-                            .orElse(Integer.MAX_VALUE);
-        }
-
-        private record NodeDistance<T>(T node, int distance) {}
-    }
 
     private static final String TEST_INPUT = """
             2413432311323

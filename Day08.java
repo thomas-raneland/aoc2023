@@ -23,7 +23,7 @@ public class Day08 {
         var instructions = parseInstructions(input);
         var network = parseNetwork(input);
         var nodes = network.left.keySet().stream().filter(node -> node.endsWith("A"));
-        var repetitions = nodes.mapToLong(node -> repetitions(instructions, network, node)).reduce((a, b) -> a * b).orElseThrow();
+        var repetitions = AocUtils.lcm(nodes.mapToLong(node -> repetitions(instructions, network, node)));
         System.out.println(repetitions * instructions.size());
     }
 
