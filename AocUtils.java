@@ -9,6 +9,11 @@ import java.util.function.Predicate;
 import java.util.stream.LongStream;
 
 class AocUtils {
+    static int modulo(int a, int b) {
+        int remainder = a % b;
+        return remainder < 0 ? remainder + b : remainder;
+    }
+
     static long lcm(LongStream stream) {
         return stream.reduce(1, AocUtils::lcm);
     }
@@ -40,6 +45,12 @@ class AocUtils {
         u.addAll(a);
         u.addAll(b);
         return u;
+    }
+
+    public static <T> Set<T> diff(Set<T> a, Set<T> b) {
+        Set<T> d = new HashSet<>(a);
+        d.removeAll(b);
+        return d;
     }
 
     static class Graph<T> {
