@@ -14,24 +14,20 @@ public class Day21 {
     }
 
     private static void partI(Board board) {
-        System.out.println("Part I");
+        System.out.println("Part I:");
 
         for (var steps : List.of(6, 64)) {
-            System.out.println(steps + ": " + walkI(board, steps));
+            System.out.println("  " + steps + " steps: " + walkI(board, steps) + " garden plots");
         }
-
-        System.out.println();
     }
 
     private static void partII(Board board) {
         var tilesAtSteps = tilesAtSteps(board, true);
-        System.out.println("Part II");
+        System.out.println("Part II:");
 
         for (int steps : List.of(6, 10, 50, 100, 500, 1000, 5000, 26501365)) {
-            System.out.println(steps + ": " + walkII(tilesAtSteps, steps));
+            System.out.println("  " + steps + " steps: " + walkII(tilesAtSteps, steps) + " garden plots");
         }
-
-        System.out.println();
     }
 
     static long walkI(Board board, int steps) {
