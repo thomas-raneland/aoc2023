@@ -65,6 +65,32 @@ class AocUtils {
             neighbors.computeIfAbsent(destination, k -> new HashSet<>());
         }
 
+        long longestPath(T start, T end) {
+            return longestPath(start, end, new HashSet<>());
+        }
+
+        private long longestPath(T pos, T end, Set<T> visited) {
+            if (pos.equals(end)) {
+                return 0;
+            }
+
+            visited.add(pos);
+            long max = Long.MIN_VALUE;
+
+            for (var next : neighbors.get(pos)) {
+                if (!visited.contains(next.node())) {
+                    long distance = next.distance() + longestPath(next.node(), end, visited);
+
+                    if (distance > max) {
+                        max = distance;
+                    }
+                }
+            }
+
+            visited.remove(pos);
+            return max;
+        }
+
         long dijkstra(T start, T end) {
             return dijkstra(start, t -> Objects.equals(t, end));
         }
