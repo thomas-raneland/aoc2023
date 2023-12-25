@@ -1,91 +1,157 @@
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.util.List;
+import java.util.function.DoublePredicate;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class Day24 {
     public static void main(String... args) {
-        Area testArea = c -> c >= 7 && c <= 27;
-        Area area = c -> c >= 200000000000000.0 && c <= 400000000000000.0;
-        record Case(String input, Area area) {}
-
-        for (Case c : List.of(new Case(TEST_INPUT, testArea), new Case(INPUT, area))) {
-            List<Stone> stones = parse(c.input());
-            System.out.println("Part I: " + countCollisions(stones, c.area(), new PrintStream(OutputStream.nullOutputStream())));
-        }
+        System.out.println("Part I: " + partI(parse(TEST_INPUT), c -> c >= 7 && c <= 27));
+        System.out.println("Part II: " + partII(parse(TEST_INPUT)));
+        System.out.println("Part I: " + partI(parse(INPUT), c -> c >= 200000000000000.0 && c <= 400000000000000.0));
+        System.out.println("Part II: " + partII(parse(INPUT)));
     }
 
-    private static List<Stone> parse(String input) {
-        return input.lines().map(line -> {
-            var s = Stream.of(line.split(",|@")).map(String::trim).mapToDouble(Long::parseLong).toArray();
-            return new Stone(new Pos(s[0], s[1], s[2]), new Velocity(s[3], s[4], s[5]));
-        }).toList();
+    static List<Stone> parse(String input) {
+        Function<String, long[]> variables = line -> Stream
+                .of(line.split("[,@]"))
+                .map(String::trim)
+                .mapToLong(Long::parseLong)
+                .toArray();
+
+        return input.lines()
+                    .map(variables)
+                    .map(vs -> new Stone(new Pos(vs[0], vs[1], vs[2]), new Velocity(vs[3], vs[4], vs[5]))).toList();
     }
 
-    private static int countCollisions(List<Stone> stones, Area area, PrintStream out) {
-        int count = 0;
+    static int partI(List<Stone> stones, DoublePredicate inside) {
+        var count = 0;
 
-        for (Stone a : stones) {
-            for (Stone b : stones.stream().dropWhile(x -> x != a).filter(x -> x != a).toList()) {
-                out.println("A: " + a + " => y = " + a.k() + "x + " + a.m());
-                out.println("B: " + b + " => y = " + b.k() + "x + " + b.m());
+        for (int aIx = 0; aIx < stones.size(); aIx++) {
+            var a = stones.get(aIx);
 
-                if (a.k() == b.k()) {
-                    out.println("Hailstones' paths are parallel; they never intersect.");
-                } else {
-                    double x = (b.m() - a.m()) / (a.k() - b.k());
-                    double y = a.k() * x + a.m();
+            for (int bIx = aIx + 1; bIx < stones.size(); bIx++) {
+                var b = stones.get(bIx);
+                var x = a.yOfX().xAt(b.yOfX());
 
-                    if (area.includes(x) && area.includes(y)) {
-                        double tA = a.timeAtY(y);
-                        double tB = b.timeAtY(y);
-                        out.println(x + " " + y + " at " + tA + "ns for A and " + tB + "ns for B");
+                if (x != null) {
+                    var y = a.yOfX().y(x);
 
-                        if (tA < 0 && tB < 0) {
-                            out.println("Hailstones' paths crossed in the past for both stones.");
-                        } else if (tA < 0) {
-                            out.println("Hailstones' paths crossed in the past for stone A.");
-                        } else if (tB < 0) {
-                            out.println("Hailstones' paths crossed in the past for stone B.");
-                        } else {
-                            count++;
-                            out.println("Hailstones' paths will cross inside the test area (at x=" + x + ", y=" + y + ")");
-                        }
-                    } else {
-                        out.println("Hailstones' paths will cross outside the test area (at x=" + x + ", y=" + y + ")");
+                    if (a.timeAtX(x) >= 0 && b.timeAtX(x) >= 0 && inside.test(x) && inside.test(y)) {
+                        count++;
                     }
                 }
-
-                out.println();
             }
         }
 
         return count;
     }
 
-    interface Area {
-        boolean includes(double coordinate);
+    static long partII(List<Stone> stones) {
+        var bound = 0L;
+
+        while (true) {
+            for (var vx = -bound; vx <= bound; vx++) {
+                for (var vy = -bound; vy <= bound; vy++) {
+                    if (Math.abs(vx) == bound || Math.abs(vy) == bound) {
+                        var rock = findRock(stones, vx, vy);
+
+                        if (rock != null) {
+                            return rock.pos().x() + rock.pos().y() + rock.pos().z();
+                        }
+                    }
+                }
+            }
+
+            bound++;
+        }
     }
 
-    record Pos(double x, double y, double z) {}
+    private static Stone findRock(List<Stone> stones, long vx, long vy) {
+        var s1 = stones.get(0);
+        var s2 = stones.get(1);
+        var rp = s2.pos().relative(s1.pos());
+        var rv1 = s1.velocity.relative(new Velocity(vx, vy, 0));
+        var rv2 = s2.velocity.relative(new Velocity(vx, vy, 0));
+        var denom = (rv1.x() * rv2.y()) - (rv1.y() * rv2.x());
+        var t1 = denom != 0 ? (rp.x() * rv2.y() - rp.y() * rv2.x()) / denom : null;
 
-    record Velocity(double x, double y, double z) {}
+        if (t1 != null) {
+            var p1 = s1.posAt(t1);
+            var x = p1.x() - vx * t1;
+            var y = p1.y() - vy * t1;
+            var trajectory = new Stone(new Pos(x, y, 0), new Velocity(vx, vy, 0)).yOfX();
+            var x2 = trajectory.xAt(s2.yOfX());
+
+            if (x2 != null) {
+                var t2 = (long) s2.timeAtX(x2);
+                var p2 = s2.posAt(t2);
+
+                if (t2 != t1) {
+                    var vz = (p2.z() - p1.z()) / (t2 - t1);
+                    var z = p1.z() - vz * t1;
+                    var rock = new Stone(new Pos(x, y, z), new Velocity(vx, vy, vz));
+
+                    if (stones.stream().allMatch(rock::hits)) {
+                        return rock;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    record Pos(long x, long y, long z) {
+        Pos relative(Pos that) {
+            return new Pos(x - that.x, y - that.y, z - that.z);
+        }
+    }
+
+    record Velocity(long x, long y, long z) {
+        Velocity relative(Velocity that) {
+            return new Velocity(x - that.x, y - that.y, z - that.z);
+        }
+    }
+
+    record LinearFunction(double k, double m) {
+        Double xAt(LinearFunction that) {
+            return k != that.k ? (that.m - m) / (k - that.k) : null;
+        }
+
+        double y(double x) {
+            return k * x + m;
+        }
+    }
 
     record Stone(Pos pos, Velocity velocity) {
-        public Pos posAt(double t) {
-            return new Pos(pos.x + t * velocity.x, pos.y + t * velocity.y, pos.z + t * velocity.z);
+        Pos posAt(long t) {
+            return new Pos(pos.x() + t * velocity.x(), pos.y() + t * velocity.y(), pos.z() + t * velocity.z());
         }
 
-        public double k() {
-            return velocity.y / velocity.x;
+        double timeAtX(double x) {
+            return (x - pos.x) / velocity.x;
         }
 
-        public double m() {
-            return pos.y - pos.x / velocity.x * velocity.y;
+        boolean hits(Stone that) {
+            var rv = velocity.relative(that.velocity);
+            var rp = that.pos.relative(pos);
+            Long t = null;
+
+            if (rv.x() != 0) {
+                t = rp.x() / rv.x();
+            } else if (rv.y() != 0) {
+                t = rp.y() / rv.y();
+            } else if (rv.z() != 0) {
+                t = rp.z() / rv.z();
+            }
+
+            return t != null && posAt(t).equals(that.posAt(t));
         }
 
-        public double timeAtY(double y) {
-            return (y - pos.y) / velocity.y;
+        LinearFunction yOfX() {
+            var k = velocity.y / (double) velocity.x;
+            var m = pos.y - pos.x / (double) velocity.x * velocity.y;
+            return new LinearFunction(k, m);
         }
     }
 
