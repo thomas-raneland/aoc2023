@@ -1,44 +1,134 @@
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Stream;
-
-import org.jgrapht.alg.StoerWagnerMinimumCut;
-import org.jgrapht.graph.DefaultUndirectedWeightedGraph;
-import org.jgrapht.graph.DefaultWeightedEdge;
 
 public class Day25 {
     public static void main(String... args) {
         for (String input : List.of(TEST_INPUT, INPUT)) {
-            var parsed = parse(input);
-            System.out.println("Part I: " + partI(parsed));
+            System.out.println("Part I: " + partI(input));
         }
     }
 
-    private static int partI(Graph parsed) {
-        var g = new DefaultUndirectedWeightedGraph<>(DefaultWeightedEdge.class);
-        parsed.vertices().forEach(g::addVertex);
-        parsed.edges().forEach(e -> g.addEdge(e.a(), e.b()));
-        var componentSize = new StoerWagnerMinimumCut<>(g).minCut().size();
-        return componentSize * (parsed.vertices().size() - componentSize);
+    private static int partI(String input) {
+        var graph = parse(input);
+        int vertices = (int) graph.vertices().count();
+        var cut = minCut(graph).size();
+        return cut * (vertices - cut);
     }
 
-    private static Graph parse(String input) {
-        Set<String> vertices = new HashSet<>();
-        Set<Edge> edges = new HashSet<>();
+    static <V> Set<V> minCut(UndirectedGraph<V> graph) {
+        var minCut = graph;
+        int minWeight = Integer.MAX_VALUE;
+        var random = new Random(1);
+
+        for (int i = 0; i < 100; i++) {
+            var cut = graph.copy();
+
+            while (cut.vertices().limit(3).count() > 2) {
+                cut.contract(cut.randomEdge(random));
+            }
+
+            if (cut.totalWeight() < minWeight) {
+                minWeight = cut.totalWeight();
+                minCut = cut;
+            }
+        }
+
+        return minCut.vertices().min(Comparator.comparingInt(Set::size)).orElseThrow();
+    }
+
+    private static UndirectedGraph<String> parse(String input) {
+        UndirectedGraph<String> graph = new UndirectedGraph<>();
 
         input.lines().forEach(line -> {
             var parts = Stream.of(line.split(" ")).map(s -> s.replace(":", "")).toList();
-            vertices.addAll(parts);
-            parts.stream().skip(1).forEach(c -> edges.add(new Edge(parts.get(0), c)));
+            parts.stream().skip(1).forEach(c -> graph.addEdge(parts.get(0), c));
         });
 
-        return new Graph(vertices, edges);
+        return graph;
     }
 
-    record Edge(String a, String b) {}
+    static class UndirectedGraph<V> {
+        record Edge(int a, int b) {}
 
-    record Graph(Set<String> vertices, Set<Edge> edges) {}
+        private final Map<V, Integer> ids = new HashMap<>();
+        private final Map<Integer, Set<V>> values = new HashMap<>();
+        private final Map<Integer, Map<Integer, Integer>> edges = new HashMap<>();
+        private int nextId = 0;
+
+        UndirectedGraph<V> copy() {
+            var copy = new UndirectedGraph<V>();
+            copy.ids.putAll(ids);
+            values.forEach((k, v) -> copy.values.put(k, new HashSet<>(v)));
+            edges.forEach((k, v) -> copy.edges.put(k, new HashMap<>(v)));
+            copy.nextId = nextId;
+            return copy;
+        }
+
+        void addEdge(V u, V v) {
+            int uId = addVertex(u);
+            int vId = addVertex(v);
+            edges.computeIfAbsent(uId, k -> new HashMap<>()).merge(vId, 1, Integer::sum);
+            edges.computeIfAbsent(vId, k -> new HashMap<>()).merge(uId, 1, Integer::sum);
+        }
+
+        private int addVertex(V u) {
+            Integer id = ids.get(u);
+
+            if (id == null) {
+                id = nextId++;
+                ids.put(u, id);
+                values.put(id, Set.of(u));
+            }
+
+            return id;
+        }
+
+        Stream<Set<V>> vertices() {
+            return edges.keySet().stream().map(values::get);
+        }
+
+        Edge randomEdge(Random random) {
+            var sources = edges.keySet().stream().toList();
+            var source = sources.get(random.nextInt(sources.size()));
+            var targets = edges.get(source).keySet().stream().toList();
+            var target = targets.get(random.nextInt(targets.size()));
+            return new Edge(source, target);
+        }
+
+        void contract(Edge edge) {
+            Map<Integer, Integer> uEdges = edges.remove(edge.a);
+            Map<Integer, Integer> vEdges = edges.remove(edge.b);
+
+            for (Map<Integer, Integer> edgeMap : this.edges.values()) {
+                edgeMap.remove(edge.a);
+                edgeMap.remove(edge.b);
+            }
+
+            uEdges.forEach((e, w) -> vEdges.merge(e, w, Integer::sum));
+            vEdges.remove(edge.a);
+            vEdges.remove(edge.b);
+
+            Set<V> uValues = values.remove(edge.a);
+            Set<V> vValues = values.remove(edge.b);
+            vValues = AocUtils.union(uValues != null ? uValues : Set.of(), vValues != null ? vValues : Set.of());
+
+            int id = nextId++;
+            values.put(id, vValues);
+            edges.put(id, vEdges);
+            vEdges.forEach((e, w) -> edges.computeIfAbsent(e, k -> new HashMap<>()).put(id, w));
+        }
+
+        int totalWeight() {
+            int sumAllEdgesBothWays = edges.values().stream().mapToInt(v -> v.values().stream().mapToInt(i -> i).sum()).sum();
+            return sumAllEdgesBothWays / 2;
+        }
+    }
 
     static final String TEST_INPUT = """
             jqt: rhn xhk nvd
